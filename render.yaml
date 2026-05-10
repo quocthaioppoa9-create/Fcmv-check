@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: fc-mobile-checker
+    runtime: node
+    buildCommand: |
+      npm install
+      npx puppeteer browsers install chrome
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
+        value: false
+    plan: starter
