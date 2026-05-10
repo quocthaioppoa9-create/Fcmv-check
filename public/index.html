@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FC Mobile VN - Account Checker</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <!-- ═══ HEADER ═══ -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <span class="logo-icon">⚽</span>
+                    <div>
+                        <h1>FC Mobile VN Checker</h1>
+                        <p class="subtitle">Kiểm tra thông tin tài khoản</p>
+                    </div>
+                </div>
+                <div class="header-status" id="connectionStatus">
+                    <span class="status-dot offline"></span>
+                    <span>Đang kết nối...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ═══ MAIN CONTENT ═══ -->
+        <main class="main">
+
+            <!-- ── INPUT PANEL ── -->
+            <section class="panel input-panel" id="inputPanel">
+                <h2 class="panel-title">
+                    <span class="panel-icon">📝</span>
+                    Nhập dữ liệu
+                </h2>
+
+                <div class="input-grid">
+                    <!-- Accounts -->
+                    <div class="input-group">
+                        <label>
+                            <span class="label-icon">👤</span>
+                            Danh sách tài khoản
+                            <span class="label-hint">(mỗi dòng 1 tài khoản)</span>
+                        </label>
+                        <textarea id="accountInput" placeholder="Nhập tài khoản, hỗ trợ nhiều định dạng:
+
+taikhoan1:matkhau123
+taikhoan2:matkhau456
+https://100054.connect.garena.com:taikhoan3:matkhau789" rows="8"></textarea>
+                        <div class="input-info">
+                            <span id="accountCount">0 tài khoản</span>
+                            <button class="btn-mini" onclick="clearInput('accountInput')">Xóa</button>
+                        </div>
+                    </div>
+
+                    <!-- Proxies -->
+                    <div class="input-group">
+                        <label>
+                            <span class="label-icon">🌐</span>
+                            Danh sách Proxy
+                            <span class="label-hint">(tùy chọn)</span>
+                        </label>
+                        <textarea id="proxyInput" placeholder="Nhập proxy (không bắt buộc):
+
+103.152.112.110:8080
+103.152.112.111:8080:user:pass" rows="8"></textarea>
+                        <div class="input-info">
+                            <span id="proxyCount">0 proxy</span>
+                            <button class="btn-mini" onclick="clearInput('proxyInput')">Xóa</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="action-bar">
+                    <div class="estimated-time" id="estimatedTime">
+                        ⏱ Thời gian ước tính: --
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn btn-secondary" onclick="previewAccounts()">
+                            👁 Xem trước
+                        </button>
+                        <button class="btn btn-primary" id="btnStart" onclick="startCheck()">
+                            🚀 Bắt đầu Check
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ── PROGRESS PANEL ── -->
+            <section class="panel progress-panel hidden" id="progressPanel">
+                <h2 class="panel-title">
+                    <span class="panel-icon">📊</span>
+                    Tiến trình
+                    <button class="btn btn-danger btn-small" id="btnStop" onclick="stopCheck()">
+                        ⏹ Dừng
+                    </button>
+                </h2>
+
+                <div class="progress-stats">
+                    <div class="stat-card">
+                        <div class="stat-value" id="statCurrent">0/0</div>
+                        <div class="stat-label">Đã xử lý</div>
+                    </div>
+                    <div class="stat-card success">
+                        <div class="stat-value" id="statSuccess">0</div>
+                        <div class="stat-label">Thành công</div>
+                    </div>
+                    <div class="stat-card danger">
+                        <div class="stat-value" id="statFail">0</div>
+                        <div class="stat-label">Thất bại</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statTime">--</div>
+                        <div class="stat-label">Còn lại</div>
+                    </div>
+                </div>
+
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+                    <span class="progress-text" id="progressText">0%</span>
+                </div>
+
+                <div class="current-account" id="currentAccount">
+                    <span class="label">Đang xử lý:</span>
+                    <span class="value" id="currentAccName">-</span>
+                    <span class="status-badge" id="currentAccStatus">Chờ</span>
+                </div>
+            </section>
+
+            <!-- ── CAPTCHA PANEL ── -->
+            <section class="panel captcha-panel hidden" id="captchaPanel">
+                <h2 class="panel-title">
+                    <span class="panel-icon">🔐</span>
+                    Captcha cần giải
+                    <span class="captcha-timer" id="captchaTimer">300s</span>
+                </h2>
+
+                <div class="captcha-content">
+                    <div class="captcha-screenshot">
+                        <img id="captchaImage" src="" alt="Captcha Screenshot">
+                        <div class="captcha-overlay" id="captchaLoading">
+                            <span>Đang chờ captcha...</span>
+                        </div>
+                    </div>
+                    <div class="captcha-info">
+                        <p>⚠️ Captcha đã xuất hiện trên trang đăng nhập Garena.</p>
+                        <p>Nếu là <strong>slide captcha</strong> hoặc <strong>click captcha</strong>:
+                            Tool sẽ tự nhận diện khi bạn thao tác xong (không cần nhập).</p>
+                        <p>Nếu là <strong>text captcha</strong>: Nhập đáp án bên dưới.</p>
+
+                        <div class="captcha-input-group">
+                            <input type="text" id="captchaAnswer" placeholder="Nhập đáp án captcha (nếu có)...">
+                            <button class="btn btn-primary" onclick="submitCaptcha()">Gửi</button>
+                        </div>
+
+                        <p class="captcha-note">
+                            💡 Screenshot sẽ tự cập nhật mỗi 10 giây.
+                            Tool sẽ tự tiếp tục nếu phát hiện đăng nhập thành công.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ── SCREENSHOT PANEL ── -->
+            <section class="panel screenshot-panel" id="screenshotPanel">
+                <h2 class="panel-title">
+                    <span class="panel-icon">🖥️</span>
+                    Live Screenshot
+                    <span class="screenshot-label" id="screenshotLabel">-</span>
+                </h2>
+                <div class="screenshot-container">
+                    <img id="screenshotImage" src="" alt="Browser Screenshot">
+                    <div class="screenshot-placeholder" id="screenshotPlaceholder">
+                        <span>📷 Screenshot sẽ hiển thị khi tool đang chạy</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ── RESULT TABLE ── -->
+            <section class="panel result-panel" id="resultPanel">
+                <h2 class="panel-title">
+                    <span class="panel-icon">📋</span>
+                    Kết quả
+                    <button class="btn btn-secondary btn-small hidden" id="btnDownload" onclick="downloadResult()">
+                        📥 Tải result.txt
+                    </button>
+                </h2>
+
+                <div class="table-container">
+                    <table class="result-table" id="resultTable">
+                        <thead>
+                            <tr>
+                                <th>STT</th>
+                                <th>Tài khoản</th>
+                                <th>OVR</th>
+                                <th>Gem</th>
+                                <th>Coin</th>
+                                <th>Cầu thủ Max</th>
+                                <th>FV</th>
+                                <th>Trạng thái</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultBody">
+                            <tr class="empty-row">
+                                <td colspan="8">Chưa có dữ liệu. Nhập tài khoản và nhấn "Bắt đầu Check".</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- ── LOG PANEL ── -->
+            <section class="panel log-panel">
+                <h2 class="panel-title">
+                    <span class="panel-icon">📜</span>
+                    Nhật ký
+                    <button class="btn-mini" onclick="clearLog()">Xóa</button>
+                </h2>
+                <div class="log-container" id="logContainer">
+                    <div class="log-entry info">
+                        <span class="log-time">--:--:--</span>
+                        <span class="log-msg">Sẵn sàng. Nhập tài khoản để bắt đầu.</span>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- ═══ FOOTER ═══ -->
+        <footer class="footer">
+            <p>FC Mobile VN Checker v1.0 • Tool quản lý tài khoản cá nhân</p>
+        </footer>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js"></script>
+</body>
+                      </html>
