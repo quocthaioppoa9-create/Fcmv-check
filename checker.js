@@ -556,4 +556,137 @@ class AccountChecker {
             try {
                 const response = await page.evaluate(async (apiUrl) => {
                     try {
-                   
+                        const res = await fetch(apiUrl, { credentials: 'include' });
+                        if (res.ok) return await res.json();
+                    } catch (e) { }
+                    return null;
+                }, url);
+
+                if (response && response.data) {
+                    const d = response.data;
+                    if (d.ovr) data.ovr = String(d.ovr);
+                    if (d.gem || d.gems) data.gem = String(d.gem || d.gems);
+                    if (d.coin || d.coins) data.coin = String(d.coin || d.coins);
+                    if (d.fv) data.fv = String(d.fv);
+                    if (d.best_player) {
+                        data.maxPlayer = typeof d.best_player === 'object'
+                            ? `${d.best_player.name} (${d.best_player.ovr})`
+                            : String(d.best_player);
+                    }
+                    break;
+                }
+            } catch (e) { }
+        }
+    }
+
+    // ──────────────────────────────────────────
+    //  ĐĂNG XUẤT
+    // ──────────────────────────────────────────
+
+    async logout() {
+        try {
+            const page = this.page;
+
+            await page.goto('https://account.garena.com/api/logout', {
+                waitUntil: 'networkidle2',
+                timeout: 10000
+            }).catch(() => { });
+
+            // Xóa cookies
+            const cookies = await page.cookies();
+            if (cookies.length > 0) await page.deleteCookie(...cookies);
+
+            // Xóa storage
+            await page.evaluate(() => {
+                try { localStorage.clear(); } catch (e) { }
+                try { sessionStorage.clear(); } catch (e) { }
+            });
+
+            await delay(1000);
+
+        } catch (e) {
+            // Nếu lỗi, chỉ cần xóa cookies
+            try {
+                const cookies = await this.page.cookies();
+                if (cookies.length > 0) await this.page.deleteCookie(...cookies);
+            } catch (e2) { }
+        }
+    }
+
+    // ──────────────────────────────────────────
+    //  HELPER FUNCTIONS
+    // ──────────────────────────────────────────
+
+    async findElement(selectors, timeout = 10000) {
+        const start = Date.now();
+        while (Date.now() - start < timeout) {
+            for (const sel of selectors) {
+                try {
+                    const el = await this.page.$(sel);
+                    if (el) {
+                        const visible = await this.page.evaluate(e => {
+                            const s = window.getComputedStyle(e);
+                            return s.display !== 'none' && s.visibility !== 'hidden' && e.offsetParent !== null;
+                        }, el);
+                        if (visible) return el;
+                    }
+                } catch (e) { }
+            }
+            await delay(500);
+        }
+        return null;
+    }
+
+    async typeHuman(element, text) {
+        for (const char of text) {
+            await element.type(char, { delay: 30 + Math.random() * 100 });
+            if (Math.random() < 0.1) await delay(200 + Math.random() * 300);
+        }
+    }
+
+    async sendScreenshot(label = '') {
+        try {
+            const buf = await this.page.screenshot({ encoding: 'base64', fullPage: false });
+            this.io.to(this.socketId).emit('screenshot', {
+                image: `data:image/png;base64,${buf}`,
+                label,
+                timestamp: Date.now()
+            });
+        } catch (e) { }
+    }
+
+    emitProgress(account, index) {
+        const elapsed = (Date.now() - this.startTime) / 1000;
+        const avgTime = elapsed / Math.max(index, 1);
+        const remaining = avgTime * (this.totalAccounts - index);
+        const percent = Math.round((index / this.totalAccounts) * 100);
+
+        this.emit('progress', {
+            current: index + 1,
+            total: this.totalAccounts,
+            percent,
+            currentAccount: account.username,
+            elapsed: Math.floor(elapsed),
+            remaining: Math.floor(remaining),
+            avgTime: Math.floor(avgTime)
+        });
+    }
+
+    emit(event, data) {
+        this.io.to(this.socketId).emit(event, data);
+    }
+
+    stop() {
+        this.shouldStop = true;
+    }
+
+    async closeBrowser() {
+        try {
+            if (this.browser) await this.browser.close();
+        } catch (e) { }
+        this.browser = null;
+        this.page = null;
+    }
+}
+
+module.exports = AccountChecker;
