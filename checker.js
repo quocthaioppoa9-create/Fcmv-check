@@ -9,7 +9,7 @@ puppeteer.use(StealthPlugin());
 //  GARENA LOGIN URLs & SELECTORS
 // ══════════════════════════════════════════════
 
-const GARENA_LOGIN_URL = 'https://sso.garena.com/universal/login?app_id=100054&redirect_uri=https%3A%2F%2Faccount.garena.com%2F&locale=vi-VN';
+const GARENA_LOGIN_URL = 'https://account.garena.com/?app_id=10017';
 
 const FC_MOBILE_URL = 'https://fcmobile.garena.vn/';
 
