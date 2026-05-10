@@ -1,21 +1,19 @@
 {
   "name": "fc-mobile-checker",
   "version": "1.0.0",
-  "description": "FC Mobile VN Account Checker - Web Version",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node server.js"
   },
   "engines": {
-    "node": "20.11.0"
+    "node": "18.19.0"
   },
   "dependencies": {
     "express": "^4.18.2",
     "socket.io": "^4.7.4",
-    "puppeteer": "^21.6.1",
-    "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "puppeteer": "21.5.2",
+    "puppeteer-extra": "3.3.6",
+    "puppeteer-extra-plugin-stealth": "2.11.2",
     "uuid": "^9.0.0"
   }
 }
