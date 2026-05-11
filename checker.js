@@ -5,17 +5,8 @@ const CaptchaHandler = require('./captcha-handler');
 
 puppeteer.use(StealthPlugin());
 
-// ══════════════════════════════════════════════
-//  GARENA LOGIN URLs & SELECTORS
-// ══════════════════════════════════════════════
-
-const GARENA_LOGIN_URL = 'https://account.garena.com/?app_id=10017';
-
+const GARENA_LOGIN_URL = 'https://account.garena.com/';
 const FC_MOBILE_URL = 'https://fcmobile.garena.vn/';
-
-// ══════════════════════════════════════════════
-//  CHECKER CLASS
-// ══════════════════════════════════════════════
 
 class AccountChecker {
     constructor(io, socketId, sessionId) {
@@ -30,10 +21,6 @@ class AccountChecker {
         this.totalAccounts = 0;
         this.startTime = null;
     }
-
-    // ──────────────────────────────────────────
-    //  KHỞI ĐỘNG TRÌNH DUYỆT
-    // ──────────────────────────────────────────
 
     async launchBrowser(proxy = null) {
         const args = [
@@ -55,7 +42,7 @@ class AccountChecker {
         }
 
         this.browser = await puppeteer.launch({
-            headless: 'new',    // Render.com không có GUI
+            headless: 'new',
             args,
             defaultViewport: { width: 1280, height: 800 },
             ignoreHTTPSErrors: true,
@@ -63,7 +50,6 @@ class AccountChecker {
 
         this.page = (await this.browser.pages())[0] || await this.browser.newPage();
 
-        // Proxy auth
         if (proxy && proxy.username) {
             await this.page.authenticate({
                 username: proxy.username,
@@ -101,13 +87,12 @@ class AccountChecker {
                     : origQuery(params);
         });
 
+        page.on('pageerror', () => {});
+        page.on('error', () => {});
+
         page.setDefaultNavigationTimeout(30000);
         page.setDefaultTimeout(15000);
     }
-
-    // ──────────────────────────────────────────
-    //  XỬ LÝ DANH SÁCH TÀI KHOẢN
-    // ──────────────────────────────────────────
 
     async processAccounts(accounts, proxies = []) {
         this.isRunning = true;
@@ -116,15 +101,12 @@ class AccountChecker {
         this.processedCount = 0;
         this.startTime = Date.now();
 
-        let proxyIndex = 0;
-
         this.emit('started', {
             total: accounts.length,
             proxyCount: proxies.length
         });
 
         try {
-            // Khởi tạo browser
             const proxy = proxies.length > 0 ? proxies[0] : null;
             await this.launchBrowser(proxy);
 
@@ -136,8 +118,6 @@ class AccountChecker {
 
                 const account = accounts[i];
                 this.processedCount = i;
-
-                // Cập nhật tiến trình
                 this.emitProgress(account, i);
 
                 try {
@@ -152,11 +132,9 @@ class AccountChecker {
                     });
                 }
 
-                // Gửi kết quả acc này
                 this.emit('account_done', { account, index: i });
                 appendResult(account, this.sessionId);
 
-                // Đăng xuất + delay
                 await this.logout();
                 if (i < accounts.length - 1) {
                     const waitMs = 3000 + Math.random() * 5000;
@@ -187,14 +165,7 @@ class AccountChecker {
         return accounts;
     }
 
-    // ──────────────────────────────────────────
-    //  XỬ LÝ 1 TÀI KHOẢN
-    // ──────────────────────────────────────────
-
     async processOneAccount(account) {
-        const page = this.page;
-
-        // ── BƯỚC 1: ĐĂNG NHẬP ──
         account.status = 'logging_in';
         account.statusText = '🔑 Đang đăng nhập...';
         this.emit('status_update', { account });
@@ -223,7 +194,6 @@ class AccountChecker {
             return;
         }
 
-        // ── BƯỚC 2: LẤY DỮ LIỆU ──
         account.status = 'scraping';
         account.statusText = '📊 Đang lấy dữ liệu FC Mobile...';
         this.emit('status_update', { account });
@@ -245,25 +215,18 @@ class AccountChecker {
         });
     }
 
-    // ──────────────────────────────────────────
-    //  ĐĂNG NHẬP GARENA
-    // ──────────────────────────────────────────
-
     async login(account) {
         const page = this.page;
 
         try {
-            // Mở trang login
             await page.goto(GARENA_LOGIN_URL, {
                 waitUntil: 'networkidle2',
                 timeout: 30000
             });
             await delay(2000);
 
-            // Chụp screenshot gửi client xem
             await this.sendScreenshot('Trang đăng nhập đã mở');
 
-            // Tìm ô username
             const usernameField = await this.findElement([
                 'input[name="username"]',
                 'input#username',
@@ -279,13 +242,11 @@ class AccountChecker {
                 return { success: false, error: 'Không tìm thấy ô nhập tài khoản' };
             }
 
-            // Điền username (giống người thật)
             await usernameField.click({ clickCount: 3 });
             await delay(300);
             await this.typeHuman(usernameField, account.username);
             await delay(500);
 
-            // Tìm ô password
             const passwordField = await this.findElement([
                 'input[name="password"]',
                 'input#password',
@@ -296,13 +257,11 @@ class AccountChecker {
                 return { success: false, error: 'Không tìm thấy ô nhập mật khẩu' };
             }
 
-            // Điền password
             await passwordField.click({ clickCount: 3 });
             await delay(300);
             await this.typeHuman(passwordField, account.password);
             await delay(800);
 
-            // Nhấn đăng nhập
             const loginBtn = await this.findElement([
                 'button[type="submit"]',
                 '#btn-login',
@@ -321,7 +280,6 @@ class AccountChecker {
             await delay(3000);
             await this.sendScreenshot('Sau khi nhấn đăng nhập');
 
-            // Kiểm tra kết quả
             return await this.checkLoginResult(account);
 
         } catch (error) {
@@ -329,13 +287,9 @@ class AccountChecker {
         }
     }
 
-    // ──────────────────────────────────────────
-    //  KIỂM TRA KẾT QUẢ ĐĂNG NHẬP
-    // ──────────────────────────────────────────
-
     async checkLoginResult(account) {
         const page = this.page;
-        const maxWait = 300000; // 5 phút
+        const maxWait = 300000;
         let elapsed = 0;
         let captchaHandled = false;
 
@@ -346,12 +300,10 @@ class AccountChecker {
 
             const url = page.url();
 
-            // ✅ Đăng nhập thành công - trang đã redirect
             if (!url.includes('sso.garena.com') && !url.includes('/login')) {
                 return { success: true };
             }
 
-            // ❌ Sai mật khẩu
             const errorMsg = await page.evaluate(() => {
                 const els = document.querySelectorAll(
                     '.error-message, .alert-danger, .error, [class*="error"], .toast-error, .notice-error'
@@ -370,27 +322,33 @@ class AccountChecker {
                 return { success: false, error: 'wrong_password', detail: errorMsg };
             }
 
-            // 🔒 Tài khoản bị khóa
             const isLocked = await page.evaluate(() => {
                 const t = document.body.textContent.toLowerCase();
-                return t.includes('bị khóa') || t.includes('locked') ||
-                    t.includes('suspended') || t.includes('banned');
+                if (t.includes('captcha') || t.includes('trượt') || t.includes('verify') ||
+                    t.includes('xác minh') || t.includes('quyền truy cập') || t.includes('slide')) {
+                    return false;
+                }
+                return (t.includes('tài khoản đã bị khóa') ||
+                        t.includes('account is locked') ||
+                        t.includes('account suspended') ||
+                        t.includes('account banned'));
             });
 
             if (isLocked) {
                 return { success: false, error: 'locked' };
             }
 
-            // 🔐 Captcha xuất hiện
             const hasCaptcha = await page.evaluate(() => {
                 const indicators = [
                     '.geetest_holder', '.geetest_panel', '.geetest_popup_wrap',
+                    '.geetest_widget', '.geetest_btn',
                     'iframe[src*="recaptcha"]', '.g-recaptcha',
                     'iframe[src*="hcaptcha"]',
                     '.captcha-container', '.captcha-wrapper',
                     'img[src*="captcha"]',
                     '.slide-captcha', '.captcha-slider',
-                    '[class*="captcha"]', '[id*="captcha"]'
+                    '[class*="captcha"]', '[id*="captcha"]',
+                    '[class*="slider"]', '[class*="verify"]'
                 ];
                 for (const sel of indicators) {
                     const el = document.querySelector(sel);
@@ -399,6 +357,14 @@ class AccountChecker {
                 const iframes = document.querySelectorAll('iframe');
                 for (const f of iframes) {
                     if ((f.src || '').match(/captcha|challenge|geetest|recaptcha/i)) return true;
+                }
+                const bodyText = document.body.textContent.toLowerCase();
+                if (bodyText.includes('trượt sang phải') ||
+                    bodyText.includes('slide to verify') ||
+                    bodyText.includes('drag the slider') ||
+                    bodyText.includes('xác minh') ||
+                    bodyText.includes('quyền truy cập của bạn')) {
+                    return true;
                 }
                 return false;
             });
@@ -415,7 +381,6 @@ class AccountChecker {
                     type: 'captcha'
                 });
 
-                // Gửi screenshot captcha cho client
                 const captchaHandler = new CaptchaHandler(this.io, this.socketId);
                 const captchaResult = await captchaHandler.waitForCaptchaSolution(page, account.id);
 
@@ -424,13 +389,11 @@ class AccountChecker {
                         message: `✅ Captcha đã được giải (${captchaResult.method})`,
                         type: 'success'
                     });
-                    // Tiếp tục vòng lặp kiểm tra
                 } else {
                     return { success: false, error: 'captcha_failed' };
                 }
             }
 
-            // Cập nhật thời gian chờ
             if (captchaHandled && elapsed % 10000 < 2000) {
                 const remain = Math.floor((maxWait - elapsed) / 1000);
                 account.statusText = `🔐 Chờ giải Captcha... (${remain}s)`;
@@ -444,16 +407,11 @@ class AccountChecker {
         return { success: false, error: 'timeout' };
     }
 
-    // ──────────────────────────────────────────
-    //  LẤY DỮ LIỆU FC MOBILE
-    // ──────────────────────────────────────────
-
     async scrapeData() {
         const page = this.page;
         const data = { ovr: '-', gem: '-', coin: '-', maxPlayer: '-', fv: '-' };
 
         try {
-            // Thử truy cập trang FC Mobile
             this.emit('log', { message: 'Truy cập FC Mobile VN...', type: 'info' });
 
             await page.goto(FC_MOBILE_URL, {
@@ -464,26 +422,20 @@ class AccountChecker {
 
             await this.sendScreenshot('Trang FC Mobile');
 
-            // Lấy dữ liệu từ trang
             const scraped = await page.evaluate(() => {
                 const result = {};
-                const body = document.body.textContent || '';
 
-                // Helper: tìm số gần label
                 const findValue = (labels) => {
                     for (const label of labels) {
-                        // Tìm trong DOM
                         const allElements = document.querySelectorAll('*');
                         for (const el of allElements) {
                             const text = (el.textContent || '').trim();
                             if (text.toLowerCase().includes(label.toLowerCase())) {
-                                // Lấy số trong element con hoặc element kế
                                 const nums = text.replace(/,/g, '').match(/\d+/g);
                                 if (nums) {
                                     const filtered = nums.filter(n => parseInt(n) > 0);
                                     if (filtered.length > 0) return filtered[filtered.length - 1];
                                 }
-                                // Kiểm tra sibling
                                 const next = el.nextElementSibling;
                                 if (next) {
                                     const nextNums = (next.textContent || '').replace(/,/g, '').match(/\d+/g);
@@ -500,10 +452,7 @@ class AccountChecker {
                 result.coin = findValue(['Coin', 'Gold', 'Tiền']) || '-';
                 result.fv = findValue(['FV', 'Face Value', 'FIFA Value']) || '-';
 
-                // Tìm cầu thủ OVR cao nhất
-                const playerCards = document.querySelectorAll(
-                    '[class*="player"], [class*="card"], .item'
-                );
+                const playerCards = document.querySelectorAll('[class*="player"], [class*="card"], .item');
                 let maxOvr = 0;
                 let maxName = '-';
 
@@ -534,54 +483,10 @@ class AccountChecker {
                 message: `Lỗi scrape: ${error.message}`,
                 type: 'warning'
             });
-
-            // Thử phương pháp API
-            try {
-                await this.scrapeViaAPI(data);
-            } catch (e) { }
         }
 
         return data;
     }
-
-    async scrapeViaAPI(data) {
-        const page = this.page;
-        const apiUrls = [
-            'https://fcmobile.garena.vn/api/profile',
-            'https://fcmobile.garena.vn/api/user/info',
-            'https://fcmobile.garena.vn/api/team',
-        ];
-
-        for (const url of apiUrls) {
-            try {
-                const response = await page.evaluate(async (apiUrl) => {
-                    try {
-                        const res = await fetch(apiUrl, { credentials: 'include' });
-                        if (res.ok) return await res.json();
-                    } catch (e) { }
-                    return null;
-                }, url);
-
-                if (response && response.data) {
-                    const d = response.data;
-                    if (d.ovr) data.ovr = String(d.ovr);
-                    if (d.gem || d.gems) data.gem = String(d.gem || d.gems);
-                    if (d.coin || d.coins) data.coin = String(d.coin || d.coins);
-                    if (d.fv) data.fv = String(d.fv);
-                    if (d.best_player) {
-                        data.maxPlayer = typeof d.best_player === 'object'
-                            ? `${d.best_player.name} (${d.best_player.ovr})`
-                            : String(d.best_player);
-                    }
-                    break;
-                }
-            } catch (e) { }
-        }
-    }
-
-    // ──────────────────────────────────────────
-    //  ĐĂNG XUẤT
-    // ──────────────────────────────────────────
 
     async logout() {
         try {
@@ -592,11 +497,9 @@ class AccountChecker {
                 timeout: 10000
             }).catch(() => { });
 
-            // Xóa cookies
             const cookies = await page.cookies();
             if (cookies.length > 0) await page.deleteCookie(...cookies);
 
-            // Xóa storage
             await page.evaluate(() => {
                 try { localStorage.clear(); } catch (e) { }
                 try { sessionStorage.clear(); } catch (e) { }
@@ -605,17 +508,12 @@ class AccountChecker {
             await delay(1000);
 
         } catch (e) {
-            // Nếu lỗi, chỉ cần xóa cookies
             try {
                 const cookies = await this.page.cookies();
                 if (cookies.length > 0) await this.page.deleteCookie(...cookies);
             } catch (e2) { }
         }
     }
-
-    // ──────────────────────────────────────────
-    //  HELPER FUNCTIONS
-    // ──────────────────────────────────────────
 
     async findElement(selectors, timeout = 10000) {
         const start = Date.now();
